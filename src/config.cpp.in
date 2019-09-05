@@ -1,0 +1,10 @@
+#include "config.hpp"
+
+namespace config {
+	const std::string group = "@group@";
+	const std::string version = "@version@";
+	const std::string project = "@project@";
+
+	const std::string build = "@build@";
+	const std::string maintainer = "@maintainer@";
+}

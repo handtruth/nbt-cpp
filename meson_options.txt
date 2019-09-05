@@ -1,0 +1,1 @@
+option('link_type', type : 'combo', choices : ['static', 'shared'], value : 'static')

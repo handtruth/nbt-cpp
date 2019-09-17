@@ -102,6 +102,7 @@ Test:arm-linux-gnueabihf:
   dependencies:
     - Restore:arm-linux-gnueabihf
     - Build:arm-linux-gnueabihf
+  when: manual
 
 Test:x86_64-alpine-linux-musl:
   <<: *test

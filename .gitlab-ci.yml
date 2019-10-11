@@ -82,7 +82,7 @@ Test:x86_64-linux-gnu: &test
     MESON_TESTTHREADS: 1
   script:
     - cd build/$TARGET
-    - meson test --wrap='valgrind --error-exitcode=1 --leak-check=full --tool=memcheck --track-origins=yes'
+    - meson test --print-errorlogs --suite regular --wrap='valgrind --error-exitcode=1 --leak-check=full --tool=memcheck --track-origins=yes'
     - cat meson-logs/testlog-valgrind.txt
   tags: ["default"]
   artifacts:

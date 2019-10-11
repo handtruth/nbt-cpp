@@ -21,13 +21,7 @@ subdir('include')
 subdir('src')
 subdir('test')
 
-if get_option('link_type') == 'static'
-  chosen_lib = static_lib
-else
-  chosen_lib = shared_lib
-endif
-
-dep = declare_dependency(link_with : chosen_lib, include_directories : includes)
+dep = declare_dependency(link_with : lib, include_directories : includes)
 
 cppcheck = custom_target(meson.project_name() + '_cppcheck_internal',
   output : meson.project_name() + '_cppcheck.log',

@@ -13,5 +13,4 @@ sources += configure_file(output : 'config.cpp', input : 'config.cpp.in',
   'maintainer' : maintainer,
 })
 
-static_lib = static_library(meson.project_name(), sources, include_directories : includes, install: true, dependencies: module_deps)
-shared_lib = shared_library(meson.project_name(), sources, include_directories : includes, install: true, dependencies: module_deps)
+lib = library(meson.project_name(), sources, include_directories : includes, install: true, dependencies: module_deps)

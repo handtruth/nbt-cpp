@@ -1,10 +1,10 @@
-project('cpp-meson', 'cpp',
+project('nbt-cpp', 'cpp',
   version : run_command('git', 'describe', '--abbrev=0', '--tags').stdout().strip(),
   default_options : ['warning_level=3',
                      'cpp_std=c++17'])
 
-group = 'com.handtruth'
-maintainer = 'someone <someone@handtruth.com>'
+group = 'com.handtruth.mc'
+maintainer = 'ktlo <ktlo@handtruth.com>'
 
 modules = [
 ]

@@ -23,8 +23,8 @@
     defined(__ARMEL__) || \
     defined(__THUMBEL__) || \
     defined(__AARCH64EL__) || \
-    defined(_MIPSEL) || defined(__MIPSEL) || defined(__MIPSEL__)
-
+    defined(_MIPSEL) || defined(__MIPSEL) || defined(__MIPSEL__) || \
+	defined(__MINGW32__)
 #else
 #	error "unknown architecture"
 #endif

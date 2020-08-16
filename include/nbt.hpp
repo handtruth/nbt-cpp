@@ -26,7 +26,7 @@
     defined(_MIPSEL) || defined(__MIPSEL) || defined(__MIPSEL__) || \
 	defined(__MINGW32__)
 #else
-#	error "unknown architecture"
+//#	error "unknown architecture"
 #endif
 
 namespace nbt {

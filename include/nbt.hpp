@@ -854,8 +854,8 @@ namespace tags {
 			auto iter = value.find(name);
 			if (iter == value.end()) {
 				auto ptr = std::make_unique<tag_of<T>>();
-				typename tag_of<T>::value_type & result = *ptr->value;
-				value.insert(name, std::move(ptr));
+				typename tag_of<T>::value_type & result = ptr->value;
+				value.emplace(name, std::move(ptr));
 				return result;
 			} else {
 				return dynamic_cast<tag_of<T> &>(*iter->second).value;

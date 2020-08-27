@@ -94,7 +94,7 @@ struct context {
 		big_endian, little_endian
 	} order;
 	enum class formats {
-		bin, zigzag, mojangson
+		bin, zigzag, mojangson, zint
 	} format;
 	static const context & get(std::ios_base & ios);
 	void set(std::ios_base & ios) const;
@@ -123,7 +123,7 @@ inline const context java {
 	context::formats::bin
 }, kbt {
 	context::orders::big_endian,
-	context::formats::zigzag
+	context::formats::zint
 }, mojangson {
 	context::orders::big_endian,
 	context::formats::mojangson
@@ -210,6 +210,9 @@ inline std::uint64_t load<std::uint64_t>(std::istream & input, const context & c
 
 void skip_space(std::istream & input);
 
+std::size_t load_size(std::istream & input, const context & ctxt);
+void dump_size(std::ostream & output, const context & ctxt, std::size_t size);
+
 template <typename number_t>
 std::vector<number_t> load_array_text(std::istream & input) {
 	std::vector<number_t> result;
@@ -228,10 +231,10 @@ std::vector<number_t> load_array_text(std::istream & input) {
 
 template <typename number_t>
 std::vector<number_t> load_array_bin(std::istream & input, const context & ctxt) {
-	auto size = load<std::uint32_t>(input, ctxt);
+	auto size = load_size(input, ctxt);
 	std::vector<number_t> result;
 	result.reserve(size);
-	for (std::uint32_t i = 0; i < size; i++)
+	for (std::size_t i = 0; i < size; i++)
 		result.emplace_back(load<number_t>(input, ctxt));
 	return result;
 }
@@ -316,7 +319,7 @@ void dump_array_text(std::ostream & output, const std::vector<number_t> & array)
 
 template <typename number_t>
 void dump_array_bin(std::ostream & output, const std::vector<number_t> & array, const context & ctxt) {
-	dump(output, static_cast<std::uint32_t>(array.size()), ctxt);
+	dump_size(output, ctxt, array.size());
 	for (const auto & element : array)
 		dump(output, element, ctxt);
 }
@@ -336,7 +339,8 @@ void dump_list(std::ostream & output, tag_id aid, const std::vector<element_type
 		output << '[';
 	} else {
 		output.put(static_cast<char>(aid));
-		dump(output, static_cast<std::uint32_t>(list.size()), ctxt);
+		auto size = static_cast<std::size_t>(list.size());
+		dump_size(output, ctxt, size);
 	}
 	auto iter = list.cbegin();
 	auto end = list.cend();
@@ -358,9 +362,9 @@ std::unique_ptr<tag_type> load_list(std::istream & input, F action) {
 	auto ptr = std::make_unique<tag_type>();
 	typename tag_type::value_type & result = ptr->value;
 	if (ctxt.format != context::formats::mojangson) {
-		auto size = load<std::uint32_t>(input, ctxt);
+		std::size_t size = load_size(input, ctxt);
 		result.reserve(size);
-		for (std::uint32_t i = 0; i < size; i++)
+		for (std::size_t i = 0; i < size; i++)
 			result.emplace_back(action(ctxt));
 	} else {
 		for (;;) {
@@ -914,5 +918,11 @@ std::istream & operator>>(std::istream & input, tags::compound_tag & compound);
 std::ostream & operator<<(std::ostream & output, const tags::tag & tag);
 
 } // namespace nbt
+
+namespace std {
+
+string to_string(const nbt::tags::tag & tag);
+
+} // namespace std
 
 #endif // NBT_HEAD_BNTYGTFREQXCPVMFFG

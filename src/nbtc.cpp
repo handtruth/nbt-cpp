@@ -1,4 +1,6 @@
 #include <iostream>
+#include <sstream>
+#include <algorithm>
 #include <map>
 #include <nbt.hpp>
 
@@ -53,12 +55,13 @@ int main(int argc, char ** argv) {
 	const context & from = iter_from->second;
 	const context & to = iter_to->second;
 	std::unique_ptr<tags::tag> root;
-	std::cin >> from;
+	auto & input = std::cin;
+	input >> from;
 	std::cout << to;
 	try {
 		if (from.format == context::formats::mojangson) {
-			tag_id id = deduce_tag(std::cin);
-			std::unique_ptr<tags::tag> tag = tags::read(id, std::cin);
+			tag_id id = deduce_tag(input);
+			std::unique_ptr<tags::tag> tag = tags::read(id, input);
 			if (tag->id() == tag_id::tag_compound) {
 				root = std::move(tag);
 			} else {
@@ -67,16 +70,18 @@ int main(int argc, char ** argv) {
 				root = std::move(compound);
 			}
 		} else {
-			root = tags::read<tag_id::tag_compound>(std::cin);
+			root = tags::read<tag_id::tag_compound>(input);
 		}
 	} catch (const std::exception & e) {
 		std::cerr
 			<< "failed to read NBT (stream position "
-			<< std::cin.tellg() << "): " << e.what() << std::endl;
+			<< input.tellg() << "): " << e.what() << std::endl;
 		return EXIT_FAILURE;
 	}
 	try {
-		std::cout << *root << std::endl;
+		std::cout << *root;
+		if (context::formats::mojangson == to.format)
+			std::cout << std::endl;
 	} catch (const std::exception & e) {
 		std::cerr
 			<< "failed to write NBT (stream position "

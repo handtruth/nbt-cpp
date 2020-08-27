@@ -1,8 +1,9 @@
-#include "nbt.hpp"
+#include "nbt_internal.hpp"
 
 #include <stdexcept>
 #include <cstdlib>
 #include <cassert>
+#include <sstream>
 
 namespace nbt {
 
@@ -47,39 +48,6 @@ void context::set(std::ios_base & ios) const {
 	} else {
 		*ctxt = *this;
 	}
-}
-
-template <typename number_t>
-constexpr std::size_t varnum_max() {
-	return sizeof(number_t) * 8 / 7 + 1;
-}
-
-template <typename number_t>
-number_t load_varnum(std::istream & input) {
-	std::size_t numRead = 0;
-	number_t value = 0;
-	int read;
-    do {
-        read = cheof(input);
-        number_t tmp = static_cast<number_t>(read & 0b01111111);
-		value |= (tmp << (7 * numRead));
-        numRead++;
-        if (numRead > varnum_max<number_t>())
-            throw std::runtime_error("varint is too big");
-    } while ((read & 0b10000000) != 0);
-    return value;
-}
-
-template <typename number_t>
-void dump_varnum(std::ostream & output, number_t value) {
-	std::make_unsigned_t<number_t> uval = value;
-	do {
-		auto temp = static_cast<std::int8_t>(uval & 0b01111111u);
-		uval >>= 7;
-		if (uval != 0)
-			temp |= 0b10000000;
-		output.put(temp);
-	} while (uval != 0);
 }
 
 std::int32_t load_varint(std::istream & input) {
@@ -153,8 +121,10 @@ std::int32_t load<std::int32_t>(std::istream & input, const context & ctxt) {
 	case context::formats::zigzag:
 		return load_varint(input);
 	case context::formats::mojangson:
-	default:
 		return load_text<std::int32_t>(input);
+	case context::formats::zint:
+	default:
+		return load_zint<std::int32_t>(input);
 	}
 }
 
@@ -166,8 +136,10 @@ std::int64_t load<std::int64_t>(std::istream & input, const context & ctxt) {
 	case context::formats::zigzag:
 		return load_varlong(input);
 	case context::formats::mojangson:
-	default:
 		return load_text<std::int64_t>(input);
+	case context::formats::zint:
+	default:
+		return load_zint<std::int64_t>(input);
 	}
 }
 
@@ -179,8 +151,10 @@ void dump<std::int32_t>(std::ostream & output, std::int32_t number, const contex
 	case context::formats::zigzag:
 		return dump_varint(output, number);
 	case context::formats::mojangson:
-	default:
 		return dump_text(output, number);
+	case context::formats::zint:
+	default:
+		return dump_zint(output, number);
 	}
 }
 
@@ -192,8 +166,10 @@ void dump<std::int64_t>(std::ostream & output, std::int64_t number, const contex
 	case context::formats::zigzag:
 		return dump_varlong(output, number);
 	case context::formats::mojangson:
-	default:
 		return dump_text(output, number);
+	case context::formats::zint:
+	default:
+		return dump_zint(output, number);
 	}
 }
 
@@ -227,6 +203,21 @@ void dump_text<double>(std::ostream & output, double number) {
 	output << number;
 }
 
+std::size_t load_size(std::istream & input, const context & ctxt) {
+	if (ctxt.format == context::formats::bin)
+		return load_flat<std::uint32_t>(input, ctxt.order);
+	else
+		return static_cast<std::size_t>(load_varint(input));
+}
+
+void dump_size(std::ostream & output, const context & ctxt, std::size_t size) {
+	auto sz = static_cast<std::uint32_t>(size);
+	if (ctxt.format == context::formats::bin)
+		dump_flat(output, sz, ctxt.order);
+	else
+		dump_varint(output, sz);
+}
+
 std::ostream & operator<<(std::ostream & output, tag_id tid) {
 	return output << std::to_string(tid);
 }
@@ -238,6 +229,10 @@ inline bool is_valid_char(char c) {
 tag_id deduce_tag(std::istream & input) {
 	skip_space(input);
 	char a = cheof(input);
+	if (a == '}' || a == ']') {
+		input.putback(a);
+		return tag_id::tag_end;
+	}
 	if (a == '[') {
 		char b = cheof(input);
 		tag_id id;
@@ -282,6 +277,27 @@ tag_id deduce_tag(std::istream & input) {
 				deduced = tag_id::tag_float;
 			} else if (b == 'd') {
 				deduced = tag_id::tag_double;
+			} else if (b == 'e') {
+				char c = cheof(input);
+				buffer.push_back(c);
+				if (std::isdigit(c) || c == '-' || c == '+') {
+					for (;;) {
+						char d = cheof(input);
+						buffer.push_back(d);
+						if (std::isdigit(d)) {
+							continue;
+						} else if (d == 'f') {
+							deduced = tag_id::tag_float;
+						} else if (d == 'd') {
+							deduced = tag_id::tag_double;
+						} else {
+							deduced = tag_id::tag_double;
+						}
+						break;
+					}
+				} else {
+					deduced = tag_id::tag_int;
+				}
 			} else if (b == '.') {
 				for (;;) {
 					char c = cheof(input);
@@ -291,7 +307,7 @@ tag_id deduce_tag(std::istream & input) {
 					} else if (c == 'e' || c == 'E') {
 						char d = cheof(input);
 						buffer.push_back(d);
-						if (std::isdigit(a) || a == '-' || a == '+')
+						if (std::isdigit(d) || d == '-' || d == '+')
 							continue;
 					} else if (c == 'f') {
 						deduced = tag_id::tag_float;
@@ -379,8 +395,8 @@ std::string read_string_text(std::istream & input) {
 }
 
 std::string read_string_bin(std::istream & input, const context & ctxt) {
-	auto size = ctxt.format == context::formats::zigzag ?
-		load_varint(input) : load<std::uint16_t>(input, ctxt);
+	std::uint32_t size = (ctxt.format == context::formats::zigzag || ctxt.format == context::formats::zint) ?
+		load_varint(input) : load_flat<std::uint16_t>(input, ctxt.order);
 	std::string result;
 	result.resize(size);
 	input.read(result.data(), size);
@@ -423,11 +439,12 @@ void write_string(std::ostream & output, const std::string & string, const conte
 	switch (ctxt.format) {
 	case context::formats::bin:
 		dump(output, static_cast<std::uint16_t>(string.size()), ctxt); break;
-	case context::formats::zigzag:
-		dump_varint(output, static_cast<std::int32_t>(string.size())); break;
 	case context::formats::mojangson:
-	default:
 		write_string_text(output, string); return;
+	case context::formats::zigzag:
+	case context::formats::zint:
+	default:
+		dump_varint(output, static_cast<std::int32_t>(string.size())); break;
 	}
 	output << string;
 }
@@ -681,34 +698,43 @@ std::unique_ptr<compound_tag> compound_tag::read(std::istream & input) {
 	return ptr;
 }
 
-void compound_tag::write(std::ostream & output) const {
-	const context & ctxt = context::get(output);
-	if (ctxt.format == context::formats::mojangson)
-		output << '{';
+void compound_write_text(std::ostream & output, const compound_tag & compound, const context & ctxt) {
+	const auto & value = compound.value;
+	output << '{';
 	auto iter = value.cbegin();
 	auto end = value.cend();
 	if (iter != end) {
 		auto action = [&](const compound_tag::value_type::value_type & entry) {
-			if (ctxt.format != context::formats::mojangson)
-				output.put(static_cast<char>(entry.second->id()));
 			write_string(output, entry.first, ctxt);
-			if (ctxt.format == context::formats::mojangson)
-				output << ':';
+			output << ':';
 			entry.second->write(output);
 		};
 		action(*iter);
 		for (++iter; iter != end; ++iter) {
-			if (ctxt.format == context::formats::mojangson)
-				output << ',';
+			output << ',';
 			action(*iter);
 		}
 	}
-	if (ctxt.format == context::formats::mojangson) {
-		output << '}';
-	} else {
-		if (!is_root)
-			tags::end.write(output);
+	output << '}';
+}
+
+void compound_write_bin(std::ostream & output, const compound_tag & compound, const context & ctxt) {
+	const auto & value = compound.value;
+	for (const auto & entry : value) {
+		output.put(static_cast<char>(entry.second->id()));
+		write_string(output, entry.first, ctxt);
+		entry.second->write(output);
 	}
+	if (!compound.is_root)
+		tags::end.write(output);
+}
+
+void compound_tag::write(std::ostream & output) const {
+	const context & ctxt = context::get(output);
+	if (ctxt.format == context::formats::mojangson)
+		compound_write_text(output, *this, ctxt);
+	else
+		compound_write_bin(output, *this, ctxt);
 }
 
 std::unique_ptr<tag> compound_tag::copy() const {
@@ -782,6 +808,9 @@ void read_compound_text(std::istream & input, tags::compound_tag & compound, con
 		tag_id key_type = deduce_tag(input);
 		switch (key_type) {
 		case tag_id::tag_end:
+			skip_space(input);
+			if (cheof(input) != '}')
+				throw std::runtime_error("failed to close compound tag");
 			return;
 		case tag_id::tag_string:
 			break;
@@ -864,6 +893,13 @@ string to_string(nbt::tag_id tid) {
 		abort(); // unreachable
 	}
 #	undef TAG_ID_CASE
+}
+
+string to_string(const nbt::tags::tag & tag) {
+	using namespace nbt;
+	std::stringstream result;
+	tag.write(result << contexts::mojangson);
+	return result.str();
 }
 
 } // namespace std

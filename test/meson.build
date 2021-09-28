@@ -1,5 +1,6 @@
 test_names = [
-  'nbt'
+  'nbt',
+  'issue2'
 ]
 
 test_files = []

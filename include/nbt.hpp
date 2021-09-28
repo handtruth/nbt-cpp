@@ -217,6 +217,12 @@ template <typename number_t>
 std::vector<number_t> load_array_text(std::istream & input) {
 	std::vector<number_t> result;
 	for (;;) {
+		skip_space(input);
+		char c = cheof(input);
+		input.putback(c);
+		if (c == ']') {
+			break;
+		}
 		result.push_back(load_text<number_t>(input));
 		skip_space(input);
 		char next = cheof(input);

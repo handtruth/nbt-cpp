@@ -43,6 +43,8 @@
         "stdexcept": "cpp",
         "streambuf": "cpp",
         "typeinfo": "cpp",
-        "config.cpp.in": "cpp"
+        "config.cpp.in": "cpp",
+        "cinttypes": "cpp",
+        "map": "cpp"
     }
 }

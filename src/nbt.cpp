@@ -518,12 +518,7 @@ std::unique_ptr<list_tag> list_tag::read(std::istream & input) {
 		if (a != '[')
 			throw std::runtime_error("failed to open list tag");
 		tag_id type = deduce_tag(input);
-		auto result = read_list_content(type, input);
-		skip_space(input);
-		a = cheof(input);
-		if (a != ']')
-			throw std::runtime_error(std::string("failed to close list tag, got: ") + a);
-		return result;
+		return read_list_content(type, input);
 	} else {
 		tag_id type = static_cast<tag_id>(cheof(input));
 		return read_list_content(type, input);
